@@ -29,7 +29,15 @@ assert.Equal(t, "1.1", r.RequestLine.HttpVersion)
 _, err = RequestFromReader(strings.NewReader("/coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n"))
 require.Error(t, err)
 
-// Test: Too many parts in request line
+// Test: Too many parts in Request line
 _, err = RequestFromReader(strings.NewReader("GET /coffee HTTP/1.1 POST\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n"))
+require.Error(t, err)
+
+// Test: Out of order Method in Request line
+_, err = RequestFromReader(strings.NewReader("/coffee HTTP/1.1 GET\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n"))
+require.Error(t, err)
+
+// Test: Invalid version in Request line
+_, err = RequestFromReader(strings.NewReader("/coffee HTTP/2.0 GET\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n"))
 require.Error(t, err)
 }
