@@ -51,4 +51,28 @@ func TestHeaderPar(t *testing.T) {
   require.NoError(t, err)
   require.NotNil(t, headers)
   assert.Equal(t, "localhost:41209", headers["host"])
+
+  // Test: Valid done
+   headers = NewHeaders()
+  data = []byte("\r\n")  
+  n, done, err = headers.Parse(data)
+  assert.Equal(t, done, true)
+
+  // Test: Valid multiple header read
+  headers = NewHeaders()
+  data = []byte("host: localhost:41209\r\n Content-Type: application/json\r\n\r\n")
+  n, done, err = headers.Parse(data)
+  require.NoError(t, err)
+  require.NotNil(t, headers)
+  assert.Equal(t, "localhost:41209", headers["host"])
+  
+  data = data[n:]
+  n, done, err = headers.Parse(data)
+  require.NoError(t, err)
+  assert.Equal(t, "application/json", headers["Content-Type"])
+  
+  data = data[n:]
+  _, done, _ = headers.Parse(data)
+  require.NoError(t, err)
+  assert.Equal(t, done, true)
 }
