@@ -14,7 +14,7 @@ func TestHeaderPar(t *testing.T) {
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.Equal(t, 23, n)
 	assert.False(t, done)
 
@@ -32,7 +32,7 @@ func TestHeaderPar(t *testing.T) {
   n, done, err = headers.Parse(data)
   require.NoError(t, err)
   require.NotNil(t, headers)
-  assert.Equal(t, "application/json", headers["Content-Type"])
+  assert.Equal(t, "application/json", headers["content-type"])
   assert.False(t, done)
  
   // Test: Valid single header with underscore 
@@ -41,7 +41,7 @@ func TestHeaderPar(t *testing.T) {
   n, done, err = headers.Parse(data)
   require.NoError(t, err)
   require.NotNil(t, headers)
-  assert.Equal(t, "de", headers["Accept_Language"])
+  assert.Equal(t, "de", headers["accept_language"])
   assert.False(t, done)
 
   // Test: Valid multiple headers
@@ -53,7 +53,7 @@ func TestHeaderPar(t *testing.T) {
   assert.Equal(t, "localhost:41209", headers["host"])
 
   // Test: Valid done
-   headers = NewHeaders()
+  headers = NewHeaders()
   data = []byte("\r\n")  
   n, done, err = headers.Parse(data)
   assert.Equal(t, done, true)
@@ -69,10 +69,27 @@ func TestHeaderPar(t *testing.T) {
   data = data[n:]
   n, done, err = headers.Parse(data)
   require.NoError(t, err)
-  assert.Equal(t, "application/json", headers["Content-Type"])
+  assert.Equal(t, "application/json", headers["content-type"])
   
   data = data[n:]
   _, done, _ = headers.Parse(data)
   require.NoError(t, err)
   assert.Equal(t, done, true)
+
+  // Test: Invalid header field name
+  headers = NewHeaders()
+  data = []byte("h™ost: localhost:41209\r\n\r\n")
+  _, _, err = headers.Parse(data)
+  require.Error(t, err)
+
+  // Test: Valid and invalid field names
+  headers = NewHeaders()
+  data = []byte("host: localhost:41209\r\n Content-T¢pe: application/json\r\n\r\n")
+  n, done, err = headers.Parse(data)
+  require.NoError(t, err)
+  assert.Equal(t, "localhost:41209", headers["host"])
+
+  data = data[n:]
+  n, done, err = headers.Parse(data)
+  require.Error(t, err)
 }
