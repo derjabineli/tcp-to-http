@@ -92,4 +92,37 @@ func TestHeaderPar(t *testing.T) {
   data = data[n:]
   n, done, err = headers.Parse(data)
   require.Error(t, err)
+
+  // Test: Multiple valid values for one field name
+  headers = NewHeaders()
+  data = []byte("Set-Person: Eli\r\n Set-Person: Vika\r\n\r\n")
+  
+  for {
+    n, done, err := headers.Parse(data)
+    require.NoError(t, err)
+
+    data = data[n:]
+    if done {
+      break
+      }
+    }
+
+  assert.Equal(t, "Eli, Vika", headers["set-person"])
+
+  // Test: Valid header with mutiple field names and combined values
+  headers = NewHeaders()
+  data = []byte("Host: localhost:41209\r\n Set-Person: Eli\r\n Set-Person: Vika\r\n\r\n")
+  
+  for {
+    n, done, err := headers.Parse(data)
+    require.NoError(t, err)
+
+    data = data[n:]
+    if done {
+      break 
+    }
+  }
+
+  assert.Equal(t, "localhost:41209", headers["host"])
+  assert.Equal(t, "Eli, Vika", headers["set-person"])
 }
