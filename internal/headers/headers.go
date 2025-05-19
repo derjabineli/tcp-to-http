@@ -5,7 +5,6 @@ import (
 	"errors"
 	"strings"
   "unicode"
-  "fmt"
 )
 
 const crlf = "\r\n"
@@ -59,9 +58,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
   fieldName = strings.TrimSpace(fieldName)
   fieldValue := strings.TrimSpace(string(parts[1]))
 
-  fmt.Printf("Valid Char: %v\n", isValidTChar(fieldName))
   if !isValidTChar(fieldName) {
-    fmt.Printf("Invalid Field Name: %s\n", fieldName)
     return 0, false, errors.New("contains invalid runes")
   } 
 
@@ -72,13 +69,17 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 
 func (h Headers) SetHeader(fieldName, fieldValue string) {
   loweredName := strings.ToLower(fieldName)
+  name, exists := h[loweredName]
+  if exists {
+    h[loweredName] = name + ", " + fieldValue
+    return
+  }
   h[loweredName] = fieldValue
 }
 
 func isValidTChar(tChar string) bool {
   for _, c := range tChar {
     if !unicode.Is(validHttpTokenRunes, rune(c)) {
-      fmt.Printf("%v is an invalid char\n", string(c))
       return false
     }
   }
