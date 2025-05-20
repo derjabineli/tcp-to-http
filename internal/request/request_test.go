@@ -1,42 +1,45 @@
 package request
 
 import (
-	"io"
 	"testing"
+  "io"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 type chunkReader struct {
-	data            string
-	numBytesPerRead int
-	pos             int
+data            string
+numBytesPerRead int
+pos             int
 }
 
 // Read implementaion that reads chunked data to simulate reading from network connection
 func (cr *chunkReader) Read(p []byte) (n int, err error) {
-	if cr.pos >= len(cr.data) {
-		return 0, io.EOF
-	}
-	endIndex := cr.pos + cr.numBytesPerRead
-	if endIndex > len(cr.data) {
-		endIndex = len(cr.data)
-	}
-	n = copy(p, cr.data[cr.pos:endIndex])
-	cr.pos += n
-	if n > cr.numBytesPerRead {
-		n = cr.numBytesPerRead
-		cr.pos -= n - cr.numBytesPerRead
-	}
-	return n, nil
+  if cr.pos >= len(cr.data) {
+    return 0, io.EOF
+  }
+  endIndex := cr.pos + cr.numBytesPerRead
+  
+  if endIndex > len(cr.data) {
+    endIndex = len(cr.data)
+  }
+  
+  n = copy(p, cr.data[cr.pos:endIndex])
+  cr.pos += n
+  if n > cr.numBytesPerRead {
+    n = cr.numBytesPerRead
+    cr.pos -= n - cr.numBytesPerRead
+  }
+  
+  return n, nil
 }
 
 func TestRequestLineParse(t *testing.T) {
 	// Test: Good GET Request line
 	reader := &chunkReader{
 		data: "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
-		numBytesPerRead: 3,
+		numBytesPerRead: 1,
 	}
 	r, err := RequestFromReader(reader)
 	require.NoError(t, err)
@@ -45,10 +48,10 @@ func TestRequestLineParse(t *testing.T) {
 	assert.Equal(t, "/", r.RequestLine.RequestTarget)
 	assert.Equal(t, "1.1", r.RequestLine.HttpVersion)
 
-	// Test: Good GET Request line with path
+  // Test: Good GET Request line with path
 	reader = &chunkReader{
-		data: "GET /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
-		numBytesPerRead: 1,
+	data: "GET /coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+	numBytesPerRead: 1024,
 	}
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
@@ -59,40 +62,40 @@ func TestRequestLineParse(t *testing.T) {
 
 	// Test: Invalid number of parts in request line
 	reader = &chunkReader{
-		data: "/coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
-		numBytesPerRead: 1,
+	data: "/coffee HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+	numBytesPerRead: 1024,
 	}
 	_, err = RequestFromReader(reader)
 	require.Error(t, err)
 
 	// Test: Too many parts in Request line
 	reader = &chunkReader{
-		data: "GET /coffee HTTP/1.1 POST\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
-		numBytesPerRead: 1,
+  data: "GET /coffee HTTP/1.1 POST\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+	numBytesPerRead: 1024,
 	}
 	_, err = RequestFromReader(reader)
 	require.Error(t, err)
 
 	// Test: Out of order Method in Request line
 	reader = &chunkReader{
-		data: "/coffee HTTP/1.1 GET\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
-		numBytesPerRead: 1,
+	data: "/coffee HTTP/1.1 GET\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+	numBytesPerRead: 1024,
 	}
 	_, err = RequestFromReader(reader)
 	require.Error(t, err)
 
 	// Test: Invalid version in Request line
 	reader = &chunkReader{
-		data: "GET /coffee HTTP/2.0\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
-		numBytesPerRead: 1,
+	data: "GET /coffee HTTP/2.0\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+	numBytesPerRead: 40,
 	}
 	_, err = RequestFromReader(reader)
 	require.Error(t, err)
 
 	// Test: Good GET Request line with larger read size
 	reader = &chunkReader{
-		data: "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
-		numBytesPerRead: 8,
+	data: "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+	numBytesPerRead: 8,
 	}
 	r, err = RequestFromReader(reader)
 	require.NoError(t, err)
@@ -100,4 +103,16 @@ func TestRequestLineParse(t *testing.T) {
 	assert.Equal(t, "GET", r.RequestLine.Method)
 	assert.Equal(t, "/", r.RequestLine.RequestTarget)
 	assert.Equal(t, "1.1", r.RequestLine.HttpVersion)
+
+// Test: Standard Headers
+  reader = &chunkReader{
+	  data: "GET / HTTP/1.1\r\nHost: localhost:42069\r\nUser-Agent: curl/7.81.0\r\nAccept: */*\r\n\r\n",
+	  numBytesPerRead: 1024,
+  }
+  r, err = RequestFromReader(reader)
+  require.NoError(t, err)
+  require.NotNil(t, r)
+  assert.Equal(t, "localhost:42069", r.Headers["host"])
+  assert.Equal(t, "curl/7.81.0", r.Headers["user-agent"])
+  assert.Equal(t, "*/*", r.Headers["accept"])
 }
