@@ -6,19 +6,23 @@ import (
 	"io"
 	"strings"
 	"unicode"
+
+	"github.com/derjabineli/httpfromtcp/internal/headers"
 )
 
 type ParserState int
 
 const (
-  StateInitialized ParserState = iota
-  StateDone
+  requestStateInitialized ParserState = iota
+  requestStateParsingHeaders
+  requestStateDone
 )
 
 const bufferSize = 8
 
 type Request struct {
   RequestLine RequestLine
+  Headers headers.Headers
   State ParserState
 }
 
@@ -31,43 +35,83 @@ type RequestLine struct {
 func RequestFromReader(reader io.Reader) (*Request, error) {
   buffer := make([]byte, bufferSize)
   readToIndex := 0
-  request := Request{
-    State: StateInitialized,
+  request := &Request{
+    State: requestStateInitialized,
+    Headers: headers.NewHeaders(),
   }
-
-  for request.State != StateDone {
-    if len(buffer) == cap(buffer) {
+  for request.State != requestStateDone {
+    if readToIndex >= len(buffer) {
       newBuf := make([]byte, len(buffer) * 2)
       copy(newBuf, buffer)
       buffer = newBuf
     }
 
-    read, readErr := reader.Read(buffer[readToIndex:])
-    readToIndex += read
-
-    if read > 0 {
-      bytesParsed, parseErr := request.parse(buffer[:readToIndex])
-      if parseErr != nil {
-        if request.State == StateDone {
-          break
+    numBytesRead, err := reader.Read(buffer[readToIndex:])
+    if err != nil {
+      if errors.Is(err, io.EOF) {
+        if request.State != requestStateDone {
+          return nil, errors.New("incomplete request")
         }
-        return nil, parseErr
-      }
-
-      if bytesParsed > 0 {
-        copy(buffer, buffer[bytesParsed:readToIndex])
-        readToIndex -= bytesParsed
+        break
       }
     }
 
-    if readErr == io.EOF {
-      break
-    } else if readErr != nil {
-      return nil, readErr
+    readToIndex += numBytesRead
+    numBytesParsed, err := request.parse(buffer[:readToIndex])
+    if err != nil {
+      return nil, err
+    }
+
+    if numBytesParsed > 0 {
+      copy(buffer, buffer[numBytesParsed:])
+      readToIndex -= numBytesParsed
     }
   }
   
-  return &request, nil
+  return request, nil
+}
+
+func (r *Request) parse(data []byte) (int, error) {
+  totalBytesParsed := 0
+  for r.State != requestStateDone {
+    n, err := r.parseSingle(data[totalBytesParsed:])
+    if err != nil {
+      return 0, err
+    }
+    totalBytesParsed += n
+    if n == 0 {
+      break
+    }
+  }
+  return totalBytesParsed, nil
+}
+
+func (r *Request) parseSingle(data []byte) (int, error) {
+  switch r.State {
+  case requestStateInitialized:
+    bytesParsed, err := parseRequestLine(r, data)
+    if err != nil {
+      return 0, err
+    } 
+    if bytesParsed == 0 {
+      return 0, nil
+    }
+    r.State = requestStateParsingHeaders 
+    return bytesParsed, nil
+  case requestStateParsingHeaders:
+    n, done, err := r.Headers.Parse(data)
+    if err != nil {
+      return 0, err
+    }
+    if done {
+      r.State = requestStateDone
+    }
+    return n, nil
+  case requestStateDone:
+    return 0, errors.New("error: trying to read data in a done state")
+  default:
+    return 0, errors.New("error: unknown state")
+  }
 }
 
 func parseRequestLine(request *Request, data []byte) (int, error) {
@@ -97,26 +141,6 @@ func parseRequestLine(request *Request, data []byte) (int, error) {
   return requestLineIndex + 2, nil
 }
 
-func (r *Request) parse(data []byte) (int, error) {
-  switch r.State {
-  case StateInitialized:
-    bytesParsed, err := parseRequestLine(r, data)
-    if err != nil {
-      return 0, err
-    } 
-    if bytesParsed == 0 {
-      return 0, nil
-    }
-    r.State = StateDone
-    return bytesParsed, nil
-  case StateDone:
-    return 0, errors.New("error: trying to read data in a done state")
-  default:
-    return 0, errors.New("error: unknown state")
-  }
-}
-
-
 func isUpper(s string) bool {
   for _, r := range s {
     if !unicode.IsUpper(r) && unicode.IsLetter(r) {
@@ -125,4 +149,3 @@ func isUpper(s string) bool {
   }
   return true
 }
-
