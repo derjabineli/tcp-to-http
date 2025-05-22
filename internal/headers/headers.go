@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
   "unicode"
+  "fmt"
 )
 
 const crlf = "\r\n"
@@ -75,6 +76,16 @@ func (h Headers) SetHeader(fieldName, fieldValue string) {
     return
   }
   h[loweredName] = fieldValue
+}
+
+func (h Headers) Get(key string) (string, error) {
+  loweredKey := strings.ToLower(key)
+  value, exists := h[loweredKey]
+  if !exists {
+    errorText := fmt.Sprintf("no %v header present", key)
+    return "", errors.New(errorText)
+  }
+  return value, nil
 }
 
 func isValidTChar(tChar string) bool {
