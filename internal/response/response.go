@@ -17,20 +17,41 @@ const (
   StatusInternalServerError = 500
 )
 
-func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
-  switch statusCode {
-  case StatusOK:
-    _, err := w.Write([]byte("HTTP/1.1 200 OK\r\n"))
-    return err
-  case StatusBadRequest:
-    _, err := w.Write([]byte("HTTP/1.1 400 Bad Request\r\n"))
-    return err
-  case StatusInternalServerError:
-    _, err := w.Write([]byte("HTTP/1.1 500 Internal Server Error\r\n"))
-    return err
-  default:
-    return errors.New("bad status code")
-  }
+type WriterState int
+
+const (
+	WriteStatusLine WriterState = iota
+	WriteHeaders 
+	WriteBody 
+)
+
+type Writer struct {
+	state WriterState
+	Writer io.Writer	
+}
+
+func getStatusLine(statusCode StatusCode) []byte {
+	reasonPhrase := ""
+	switch statusCode {
+	case StatusOK:
+		reasonPhrase = "OK"
+	case StatusBadRequest:
+		reasonPhrase = "Bad Request"
+	case StatusInternalServerError:
+		reasonPhrase = "Internal Server Error"
+	}
+	statusLine := []byte(fmt.Sprintf("HTTP/1.1 %v %v \r\n", statusCode, reasonPhrase))
+	return statusLine
+}
+
+func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
+  if w.state != WriteStatusLine {
+		return errors.New("writing status line out of order")
+	}
+	
+	statusLine := getStatusLine(statusCode)
+	_, err := w.Writer.Write(statusLine)
+	return err
 }
 
 func GetDefaultHeaders(contentLen int) headers.Headers {
@@ -41,12 +62,22 @@ func GetDefaultHeaders(contentLen int) headers.Headers {
   return h
 }
 
-func WriteHeaders(w io.Writer, headers headers.Headers) error {
-  writableHeader := []byte{}
+func (w *Writer) WriteHeaders(headers headers.Headers) error {
+  if w.state != WriteHeaders {
+		return errors.New("writing headers out of order")
+	}
+	writableHeader := []byte{}
   for header, value := range headers {
     writableHeader = fmt.Appendf(writableHeader, fmt.Sprintf("%v: %v\r\n", header, value)) 
   }
   writableHeader = fmt.Appendf(writableHeader, "\r\n")
-  _, err := w.Write(writableHeader)
+  _, err := w.Writer.Write(writableHeader)
   return err
+}
+
+func (w *Writer) WriteBody(b []byte) error {
+	if w.state != WriteBody {
+		return errors.New("writing body out of order")
+	}
+	return nil
 }
