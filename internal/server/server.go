@@ -60,10 +60,7 @@ func (s *Server) listen() {
 
 func (s *Server) handle(conn net.Conn) {
   defer conn.Close() 
-	w := &response.Writer{
-		State: response.WriteStatusLine,
-		Writer: conn,
-	}
+	w := response.NewWriter(conn)
 	req, err := request.RequestFromReader(conn)
   if err != nil {
     w.WriteStatusLine(response.StatusBadRequest)

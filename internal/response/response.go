@@ -1,7 +1,6 @@
 package response
 
 import (
-	"io"
 	"strconv"
 
 	"github.com/derjabineli/httpfromtcp/internal/headers"
@@ -10,23 +9,10 @@ import (
 type StatusCode int
 
 const (
-  StatusOK StatusCode = 200
-  StatusBadRequest = 400
-  StatusInternalServerError = 500
+  StatusOK 					StatusCode = 200
+  StatusBadRequest 			StatusCode = 400
+  StatusInternalServerError StatusCode = 500
 )
-
-type WriterState int
-
-const (
-	WriteStatusLine WriterState = iota
-	WriteHeaders 
-	WriteBody 
-)
-
-type Writer struct {
-	State WriterState
-	Writer io.Writer	
-}
 
 func GetDefaultHeaders(contentLen int) headers.Headers {
   h := headers.NewHeaders()
