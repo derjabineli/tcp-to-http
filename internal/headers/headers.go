@@ -63,7 +63,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
     return 0, false, errors.New("contains invalid runes")
   } 
 
-  h.SetHeader(fieldName, fieldValue)
+  h.Set(fieldName, fieldValue)
 
   return idx + 2, false, nil
 }
@@ -74,7 +74,7 @@ func (h Headers) Overwrite(fieldName, fieldValue string) {
 }
 
 
-func (h Headers) SetHeader(fieldName, fieldValue string) {
+func (h Headers) Set(fieldName, fieldValue string) {
   loweredName := strings.ToLower(fieldName)
   name, exists := h[loweredName]
   if exists {
@@ -85,13 +85,18 @@ func (h Headers) SetHeader(fieldName, fieldValue string) {
 }
 
 func (h Headers) Get(key string) (string, error) {
-  loweredKey := strings.ToLower(key)
-  value, exists := h[loweredKey]
+  key = strings.ToLower(key)
+  value, exists := h[key]
   if !exists {
     errorText := fmt.Sprintf("no %v header present", key)
     return "", errors.New(errorText)
   }
   return value, nil
+}
+
+func (h Headers) Delete(key string) {
+	key = strings.ToLower(key)
+	delete(h, key)
 }
 
 func isValidTChar(tChar string) bool {
