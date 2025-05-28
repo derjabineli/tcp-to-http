@@ -2,13 +2,12 @@ package server
 
 import (
 	"fmt"
+	"log"
 	"net"
-  "sync/atomic"
-  "log"
+	"sync/atomic"
 
-  "github.com/derjabineli/httpfromtcp/internal/response"
-  "github.com/derjabineli/httpfromtcp/internal/request"
-
+	"github.com/derjabineli/httpfromtcp/internal/request"
+	"github.com/derjabineli/httpfromtcp/internal/response"
 )
 
 type Server struct {
@@ -65,6 +64,12 @@ func (s *Server) handle(conn net.Conn) {
 		State: response.WriteStatusLine,
 		Writer: conn,
 	}
-	req, _ := request.RequestFromReader(conn)
+	req, err := request.RequestFromReader(conn)
+  if err != nil {
+    w.WriteStatusLine(response.StatusBadRequest)
+    body := []byte(fmt.Sprintf("Error parsing request %v", err))
+    w.WriteHeaders(response.GetDefaultHeaders(len(body)))
+    w.WriteBody(body)
+  }
 	s.handler(w, req)
 }
