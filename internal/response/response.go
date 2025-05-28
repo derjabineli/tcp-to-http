@@ -1,12 +1,10 @@
 package response
 
 import (
-  "io"
-  "errors"
-  "strconv"
-  "fmt"
+	"io"
+	"strconv"
 
-  "github.com/derjabineli/httpfromtcp/internal/headers"
+	"github.com/derjabineli/httpfromtcp/internal/headers"
 )
 
 type StatusCode int
@@ -26,32 +24,8 @@ const (
 )
 
 type Writer struct {
-	state WriterState
+	State WriterState
 	Writer io.Writer	
-}
-
-func getStatusLine(statusCode StatusCode) []byte {
-	reasonPhrase := ""
-	switch statusCode {
-	case StatusOK:
-		reasonPhrase = "OK"
-	case StatusBadRequest:
-		reasonPhrase = "Bad Request"
-	case StatusInternalServerError:
-		reasonPhrase = "Internal Server Error"
-	}
-	statusLine := []byte(fmt.Sprintf("HTTP/1.1 %v %v \r\n", statusCode, reasonPhrase))
-	return statusLine
-}
-
-func (w *Writer) WriteStatusLine(statusCode StatusCode) error {
-  if w.state != WriteStatusLine {
-		return errors.New("writing status line out of order")
-	}
-	
-	statusLine := getStatusLine(statusCode)
-	_, err := w.Writer.Write(statusLine)
-	return err
 }
 
 func GetDefaultHeaders(contentLen int) headers.Headers {
@@ -60,24 +34,4 @@ func GetDefaultHeaders(contentLen int) headers.Headers {
   h.SetHeader("Connection", "close")
   h.SetHeader("Content-Type", "text/plain")
   return h
-}
-
-func (w *Writer) WriteHeaders(headers headers.Headers) error {
-  if w.state != WriteHeaders {
-		return errors.New("writing headers out of order")
-	}
-	writableHeader := []byte{}
-  for header, value := range headers {
-    writableHeader = fmt.Appendf(writableHeader, fmt.Sprintf("%v: %v\r\n", header, value)) 
-  }
-  writableHeader = fmt.Appendf(writableHeader, "\r\n")
-  _, err := w.Writer.Write(writableHeader)
-  return err
-}
-
-func (w *Writer) WriteBody(b []byte) error {
-	if w.state != WriteBody {
-		return errors.New("writing body out of order")
-	}
-	return nil
 }
