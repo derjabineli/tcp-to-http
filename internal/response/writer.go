@@ -58,3 +58,21 @@ func (w *Writer) WriteBody(b []byte) (int, error) {
 	n, err := w.Writer.Write(b)
 	return n, err
 }
+
+func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
+	if w.state != writerStateBody {
+		return 0, errors.New("writing body out of order")
+	}
+	chunkSize := len(p)
+	chunk := []byte(fmt.Sprintf("%x\r\n", chunkSize))
+	chunk = append(chunk, p...)
+	chunk = append(chunk, []byte("\r\n")...)
+	n, err := w.Writer.Write(chunk)
+	return n, err
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error) {
+	doneLine := fmt.Sprintf("%x\r\n\r\n", 0)
+	n, err := w.Writer.Write([]byte(doneLine))
+	return n, err
+}
