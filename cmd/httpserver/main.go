@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
-	"io"
 
 	"github.com/derjabineli/httpfromtcp/internal/server"
 	"github.com/derjabineli/httpfromtcp/internal/request"
@@ -29,20 +28,73 @@ func main() {
 	log.Println("Server gracefully stopped")
 }
 
-func handler(w io.Writer, req *request.Request) *server.HandlerError {
-	if req.RequestLine.RequestTarget == "/yourproblem" {
-		return &server.HandlerError{
-			StatusCode: response.StatusBadRequest,
-			Message: "Your problem is not my problem\n",
-		}
+func handler(w *response.Writer, req *request.Request) {
+	switch req.RequestLine.RequestTarget{
+	case "/yourproblem":
+		handler400(w)
+	case "/myproblem":
+		handler500(w)
+	default:
+		handler200(w)
 	}
-	if req.RequestLine.RequestTarget == "/myproblem" {
-		return &server.HandlerError{
-			StatusCode: response.StatusInternalServerError,
-			Message: "Woopsie, my bad\n",
-		}
-	}
-	w.Write([]byte("All good, frfr\n"))
-	return nil
 }
 
+func handler400(w *response.Writer) {
+	body := []byte(`
+		<html>
+  <head>
+    <title>400 Bad Request</title>
+  </head>
+  <body>
+    <h1>Bad Request</h1>
+    <p>Your request honestly kinda sucked.</p>
+  </body>
+</html>
+	`)
+	w.WriteStatusLine(response.StatusBadRequest)
+	headers:= response.GetDefaultHeaders(len(body))
+	headers.Overwrite("content-type", "text/html")
+	w.WriteHeaders(headers)
+	w.WriteBody(body)
+	return
+}
+
+func handler500(w *response.Writer) {
+	body := []byte(`
+<html>
+  <head>
+    <title>500 Internal Server Error</title>
+  </head>
+  <body>
+    <h1>Internal Server Error</h1>
+    <p>Okay, you know what? This one is on me.</p>
+  </body>
+</html>
+	`)
+	w.WriteStatusLine(response.StatusInternalServerError)
+	headers:= response.GetDefaultHeaders(len(body))
+	headers.Overwrite("content-type", "text/html")
+	w.WriteHeaders(headers)
+	w.WriteBody(body)
+	return
+}
+
+func handler200(w *response.Writer) {
+	body := []byte(`
+<html>
+  <head>
+    <title>200 OK</title>
+  </head>
+  <body>
+    <h1>Success!</h1>
+    <p>Your request was an absolute banger.</p>
+  </body>
+</html>
+	`)
+	w.WriteStatusLine(response.StatusOK)
+	headers:= response.GetDefaultHeaders(len(body))
+	headers.Overwrite("content-type", "text/html")
+	w.WriteHeaders(headers)
+	w.WriteBody(body)
+	return
+}

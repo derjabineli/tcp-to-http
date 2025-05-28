@@ -5,8 +5,6 @@ import (
 	"net"
   "sync/atomic"
   "log"
-	"io"
-	"bytes"
 
   "github.com/derjabineli/httpfromtcp/internal/response"
   "github.com/derjabineli/httpfromtcp/internal/request"
@@ -19,19 +17,7 @@ type Server struct {
 	handler Handler
 }
 
-type Handler func(w io.Writer, req *request.Request) *HandlerError
-
-type HandlerError struct {
-	StatusCode response.StatusCode 
-	Message string
-}
-
-func (h HandlerError)writeError(w io.Writer) {
-	response.WriteStatusLine(w, h.StatusCode)
-	headers := response.GetDefaultHeaders(len(h.Message))
-	response.WriteHeaders(w, headers)
-	w.Write([]byte(h.Message))
-}
+type Handler func(w *response.Writer, req *request.Request)
 
 
 func Serve(port int, handler Handler) (*Server, error) {
@@ -75,23 +61,10 @@ func (s *Server) listen() {
 
 func (s *Server) handle(conn net.Conn) {
   defer conn.Close() 
-	req, err := request.RequestFromReader(conn)
-	if err != nil {
-		hErr := &HandlerError{
-			StatusCode: response.StatusInternalServerError,
-			Message: err.Error(),
-		}
-		hErr.writeError(conn)
-		return
+	w := &response.Writer{
+		State: response.WriteStatusLine,
+		Writer: conn,
 	}
-	buf := bytes.NewBuffer([]byte{}) 
-	hErr := s.handler(buf, req)
-	if hErr != nil {
-		hErr.writeError(conn)
-		return
-	}
-  response.WriteStatusLine(conn, response.StatusOK)
-  headers := response.GetDefaultHeaders(buf.Len())
-  response.WriteHeaders(conn, headers)
-	buf.WriteTo(conn)
+	req, _ := request.RequestFromReader(conn)
+	s.handler(w, req)
 }
