@@ -5,6 +5,11 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"strings"
+	"net/http"
+	"fmt"
+	"errors"
+	"io"
 
 	"github.com/derjabineli/httpfromtcp/internal/server"
 	"github.com/derjabineli/httpfromtcp/internal/request"
@@ -29,14 +34,20 @@ func main() {
 }
 
 func handler(w *response.Writer, req *request.Request) {
-	switch req.RequestLine.RequestTarget{
-	case "/yourproblem":
+	if req.RequestLine.RequestTarget == "/yourproblem" {
 		handler400(w)
-	case "/myproblem":
-		handler500(w)
-	default:
-		handler200(w)
+		return
 	}
+	if req.RequestLine.RequestTarget == "/myproblem" {
+		handler500(w)
+		return
+	}
+	if strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin") {
+		httpBinProxy(w, req)
+		return
+	}
+	handler200(w)
+	return
 }
 
 func handler400(w *response.Writer) {
@@ -97,4 +108,34 @@ func handler200(w *response.Writer) {
 	w.WriteHeaders(headers)
 	w.WriteBody(body)
 	return
+}
+
+func httpBinProxy(w *response.Writer, req *request.Request) {
+	target := strings.TrimPrefix(req.RequestLine.RequestTarget, "/httpbin/")
+	url := fmt.Sprintf("https://httpbin.org/%s", target)
+	resp, err := http.Get(url)
+	if err != nil {
+		handler500(w)
+		return
+	}
+	w.WriteStatusLine(response.StatusOK)
+	headers := response.GetDefaultHeaders(0)
+	headers.Delete("content-length")
+	headers.Set("Transfer-Encoding", "chunked")
+	headers.Set("Host", "httpbin.org")
+	w.WriteHeaders(headers)
+
+	buf := make([]byte, 1024)
+	for {
+		n, err := resp.Body.Read(buf)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+			w.WriteChunkedBodyDone()
+			return
+		}
+		handler500(w)
+		return
+	}
+	w.WriteChunkedBody(buf[:n])
+	}
 }
