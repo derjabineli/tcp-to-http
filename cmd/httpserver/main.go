@@ -8,7 +8,6 @@ import (
 	"strings"
 	"net/http"
 	"fmt"
-	"errors"
 	"io"
 
 	"github.com/derjabineli/httpfromtcp/internal/server"
@@ -118,24 +117,32 @@ func httpBinProxy(w *response.Writer, req *request.Request) {
 		handler500(w)
 		return
 	}
+	defer resp.Body.Close()
+
 	w.WriteStatusLine(response.StatusOK)
 	headers := response.GetDefaultHeaders(0)
 	headers.Delete("content-length")
-	headers.Set("Transfer-Encoding", "chunked")
-	headers.Set("Host", "httpbin.org")
+	headers.Overwrite("Transfer-Encoding", "chunked")
 	w.WriteHeaders(headers)
 
-	buf := make([]byte, 1024)
+	var maxBufferSize = 1024
+	buf := make([]byte, maxBufferSize)
 	for {
 		n, err := resp.Body.Read(buf)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-			w.WriteChunkedBodyDone()
-			return
+		if n > 0 {
+			_, err = w.WriteChunkedBody(buf[:n])
+			if err != nil {
+				fmt.Println("Error writing chunked body: ", err)
+				break
+			}
 		}
-		handler500(w)
-		return
+		if err == io.EOF {
+			break	
+		}
+		if err != nil {
+			fmt.Println("Error reading from response body: ", err)
+			break
+		}
 	}
-	w.WriteChunkedBody(buf[:n])
-	}
+	w.WriteChunkedBodyDone()
 }
