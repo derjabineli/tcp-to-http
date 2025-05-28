@@ -68,6 +68,12 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
   return idx + 2, false, nil
 }
 
+func (h Headers) Overwrite(fieldName, fieldValue string) {
+  loweredName := strings.ToLower(fieldName)
+  h[loweredName] = fieldValue
+}
+
+
 func (h Headers) SetHeader(fieldName, fieldValue string) {
   loweredName := strings.ToLower(fieldName)
   name, exists := h[loweredName]
