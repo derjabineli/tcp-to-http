@@ -17,7 +17,7 @@ import (
 
 )
 
-const port = 42069
+const port = 42010
 
 func main() {
 	server, err := server.Serve(port, handler)
