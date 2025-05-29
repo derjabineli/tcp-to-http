@@ -14,6 +14,7 @@ const (
 	writerStateStatusLine WriterState = iota
 	writerStateHeaders 
 	writerStateBody 
+	writerStateTrailers
 )
 
 type Writer struct {
@@ -72,7 +73,19 @@ func (w *Writer) WriteChunkedBody(p []byte) (int, error) {
 }
 
 func (w *Writer) WriteChunkedBodyDone() (int, error) {
-	doneLine := fmt.Sprintf("%x\r\n\r\n", 0)
+	doneLine := fmt.Sprintf("%x\r\n", 0)
 	n, err := w.Writer.Write([]byte(doneLine))
+	w.state = writerStateTrailers
 	return n, err
+}
+
+func (w *Writer) WriteTrailers(headers headers.Headers) error {
+	if w.state != writerStateTrailers {
+		return errors.New("writing trailers out of order")	
+	}
+	for header, value := range headers{
+		w.Writer.Write([]byte(fmt.Sprintf("%s: %s\r\n", header, value)))
+	}
+	_, err := w.Writer.Write([]byte("\r\n"))
+	return err
 }

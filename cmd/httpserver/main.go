@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"fmt"
 	"io"
+	"crypto/sha256"
 
 	"github.com/derjabineli/httpfromtcp/internal/server"
 	"github.com/derjabineli/httpfromtcp/internal/request"
@@ -123,8 +124,10 @@ func httpBinProxy(w *response.Writer, req *request.Request) {
 	headers := response.GetDefaultHeaders(0)
 	headers.Delete("content-length")
 	headers.Overwrite("Transfer-Encoding", "chunked")
+	headers.Overwrite("Trailers", "X-Content-SHA256, X-Content-Length")
 	w.WriteHeaders(headers)
 
+	fullBody := []byte{}
 	var maxBufferSize = 1024
 	buf := make([]byte, maxBufferSize)
 	for {
@@ -135,6 +138,7 @@ func httpBinProxy(w *response.Writer, req *request.Request) {
 				fmt.Println("Error writing chunked body: ", err)
 				break
 			}
+			fullBody = append(fullBody, buf[:n]...)
 		}
 		if err == io.EOF {
 			break	
@@ -145,4 +149,11 @@ func httpBinProxy(w *response.Writer, req *request.Request) {
 		}
 	}
 	w.WriteChunkedBodyDone()
+
+	sha256 := fmt.Sprintf("%x", sha256.Sum256(fullBody))
+	trailers := response.GetDefaultHeaders(0)
+	trailers.Delete("content-length")
+	trailers.Overwrite("X-Content-SHA256", sha256)
+	trailers.Overwrite("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
+	w.WriteTrailers(trailers)
 }
