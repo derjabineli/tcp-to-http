@@ -11,8 +11,8 @@ This project was designed for learning and exploring the world of HTTP and HTTP 
 - References RFC 9110 & 9112
 
 ## Installation
-Clone this repository 
-***git clone https://github.com/derjabineli/tcp-to-http.git***
+Clone this repository
+`git clone https://github.com/derjabineli/tcp-to-http.git`
 
 ## Usage
 Run `go run ./cmd/httpserver` to start up a HTTP server on port 42010
