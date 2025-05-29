@@ -46,6 +46,10 @@ func handler(w *response.Writer, req *request.Request) {
 		httpBinProxy(w, req)
 		return
 	}
+	if req.RequestLine.RequestTarget == "/video" {
+		handlerVideo(w, req)
+		return
+	}
 	handler200(w)
 	return
 }
@@ -156,4 +160,18 @@ func httpBinProxy(w *response.Writer, req *request.Request) {
 	trailers.Overwrite("X-Content-SHA256", sha256)
 	trailers.Overwrite("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
 	w.WriteTrailers(trailers)
+}
+
+func handlerVideo(w *response.Writer, req *request.Request) {
+	body, err := os.ReadFile("./assets/vim.mp4")
+	if err != nil {
+		handler500(w)
+		return
+	}
+
+	w.WriteStatusLine(response.StatusOK)
+	headers := response.GetDefaultHeaders(len(body))
+	headers.Overwrite("Content-Type", "video/mp4")
+	w.WriteHeaders(headers)
+	w.WriteBody(body)
 }
